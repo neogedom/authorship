@@ -23,5 +23,18 @@ async function readBody(request: Request): Promise<string> {
   if (typeof request.json === 'function') {
     return JSON.stringify(await request.json())
   }
-  throw new Error('Unable to read request body')
+  const diag: Record<string, unknown> = {
+    error: 'Unable to read request body',
+    keys: Object.keys(request),
+    ownNames: Object.getOwnPropertyNames(request),
+    bodyType: typeof (request as any).body,
+    hasBody: !!(request as any).body,
+    protoKeys: Object.getOwnPropertyNames(Object.getPrototypeOf(request)),
+  }
+  try {
+    const proto = Object.getPrototypeOf(request)
+    const protoProto = Object.getPrototypeOf(proto)
+    diag['protoProtoKeys'] = protoProto ? Object.getOwnPropertyNames(protoProto) : null
+  } catch {}
+  throw new Error(JSON.stringify(diag))
 }
