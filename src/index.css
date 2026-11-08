@@ -1,0 +1,46 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #111827;
+  background: #f3f4f6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+a { color: #2563eb; }
+#root { min-height: 100vh; }
+.app-shell { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+.sidebar { background: #111827; color: #f9fafb; padding: 12px; overflow: auto; }
+.sidebar h1 { font-size: 1rem; margin: 0 0 8px; }
+.sidebar .muted { color: #9ca3af; font-size: 0.85rem; }
+.main { padding: 12px; overflow: auto; }
+.card { background: white; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+input, select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; background: white; }
+textarea.editor { min-height: 55vh; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+button.primary { background: #2563eb; color: white; border: none; border-radius: 8px; padding: 8px 12px; }
+button.secondary { background: #e5e7eb; color: #111827; border: none; border-radius: 8px; padding: 8px 12px; }
+button.danger { background: #dc2626; color: white; border: none; border-radius: 8px; padding: 8px 12px; }
+button:disabled { opacity: 0.6; cursor: default; }
+.chapter-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.chapter-list button { width: 100%; text-align: left; background: transparent; color: inherit; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; }
+.chapter-list button.active { background: #1f2937; border-color: #374151; }
+.chapter-list .badge { font-size: 0.7rem; background: #f59e0b; color: #111827; padding: 1px 6px; border-radius: 999px; margin-left: 6px; }
+.tabs { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.status { font-size: 0.85rem; color: #374151; white-space: pre-wrap; }
+pre.output { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
+@media (max-width: 900px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .sidebar { max-height: 38vh; }
+  textarea.editor { min-height: 38vh; }
+}
+
+textarea.editor { line-height: 1.45; }
+.comment-line { color: #92400e; font-size: 0.85rem; }
