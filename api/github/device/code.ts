@@ -16,6 +16,12 @@ async function readBody(request: Request): Promise<string> {
   if (typeof request.text === 'function') {
     return await request.text()
   }
-  const buf = await request.arrayBuffer()
-  return new TextDecoder().decode(buf)
+  if (typeof request.arrayBuffer === 'function') {
+    const buf = await request.arrayBuffer()
+    return new TextDecoder().decode(buf)
+  }
+  if (typeof request.json === 'function') {
+    return JSON.stringify(await request.json())
+  }
+  throw new Error('Unable to read request body')
 }
