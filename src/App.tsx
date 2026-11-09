@@ -22,12 +22,14 @@ import { runPrompt } from './lib/llm'
 import { addAuthorComment, deleteComment, formatAuthorComments, setCommentResolved } from './lib/comments'
 import { fetchStoryBibleContext } from './lib/storybible'
 
-type Tab = 'editar' | 'revisar' | 'marketing' | 'sync'
+type Section = 'capitulos' | 'livro' | 'sync'
+type Mode = 'editar' | 'revisar'
 
 export default function App() {
   const chapters = useLiveQuery(() => db.chapters.orderBy('name').toArray(), [], [])
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [tab, setTab] = useState<Tab>('editar')
+  const [section, setSection] = useState<Section>('capitulos')
+  const [mode, setMode] = useState<Mode>('editar')
   const [status, setStatus] = useState('Pronto.')
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -60,9 +62,10 @@ export default function App() {
     })()
   }, [])
 
+  const isMarketing = section === 'livro'
   const templates = useMemo(
-    () => promptTemplates.filter((t) => (tab === 'marketing' ? t.marketing : !t.marketing && t.scope !== 'book')),
-    [tab],
+    () => promptTemplates.filter((t) => (isMarketing ? t.marketing : !t.marketing && t.scope !== 'book')),
+    [isMarketing],
   )
   const templateId = templates.some((t) => t.id === templateChoice) ? templateChoice : (templates[0]?.id ?? templateChoice)
   const activeTemplate = templates.find((t) => t.id === templateId) || templates[0]
@@ -144,7 +147,7 @@ export default function App() {
       const note = sb.missing.length ? `\n\n[Aviso Story Bible] Não carregados: ${sb.missing.join('; ')}` : ''
       setOutput(res.text + note)
       setStatus(sb.loaded.length ? `Execução concluída. Story Bible: ${sb.loaded.join(', ')}.` : 'Execução concluída (sem referências Story Bible carregadas).')
-      setTab(tab === 'marketing' ? 'marketing' : 'revisar')
+      setMode('revisar')
     })
   }
 
@@ -156,7 +159,7 @@ export default function App() {
       const numbered = all.filter((c) => c.number != null).sort((a, b) => (a.number! - b.number!))
       const rest = all.filter((c) => c.number == null)
       const ordered = [...rest, ...numbered]
-      if (!ordered.length) throw new Error('Sem capítulos locais. Faça Pull na aba Sync.')
+      if (!ordered.length) throw new Error('Sem capítulos locais. Abra Sync e faça Pull.')
       const sb = await fetchStoryBibleContext(setStatus)
       const material = ordered
         .map((c) => `# ${c.name}\n${c.content}`)
@@ -170,7 +173,6 @@ export default function App() {
       const note = sb.missing.length ? `\n\n[Aviso Story Bible] Não carregados: ${sb.missing.join('; ')}` : ''
       setOutput(res.text + note)
       setStatus(`Revisão geral concluída (${ordered.length} capítulos). Story Bible: ${sb.loaded.length ? sb.loaded.join(', ') : 'nenhum arquivo carregado'}.`)
-      setTab('revisar')
     })
   }
 
@@ -194,42 +196,125 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <h1>Autoria do Livro</h1>
-        <div className="muted">PWA • offline • Livro + Story Bible</div>
-        <div className="row" style={{ marginTop: 8 }}>
-          <button className="secondary" onClick={() => setTab('sync')} disabled={busy}>Sync</button>
-          <button className="secondary" onClick={() => setTab('revisar')} disabled={busy}>Revisão</button>
-          <button className="secondary" onClick={() => setTab('marketing')} disabled={busy}>Marketing</button>
-        </div>
-        <ul className="chapter-list">
-          {chapters.map((c) => (
-            <li key={c.path}>
-              <button className={c.path === effectiveSelectedPath ? 'active' : ''} onClick={() => { setSelectedPath(c.path); if (tab === 'sync' || tab === 'marketing') setTab('editar') }}>
-                {c.name}
-                {c.dirty ? <span className="badge">local</span> : null}
-              </button>
-            </li>
-          ))}
-          {!chapters.length ? <li className="muted" style={{ padding: 8 }}>Sem capítulos locais. Abra Sync e faça Pull.</li> : null}
-        </ul>
-      </aside>
-
       <main className="main">
         <div className="card">
-          <div className="row" style={{ justifyContent: 'space-between' }}>
-            <strong>{selected ? selected.name : 'Capítulo'}</strong>
-            <div className="row">
-              <button className="secondary" onClick={() => setTab('editar')} disabled={busy}>Editar</button>
-              <button className="secondary" onClick={() => setTab('revisar')} disabled={busy}>Revisar</button>
-              <button className="secondary" onClick={() => setTab('marketing')} disabled={busy}>Marketing</button>
-              <button className="secondary" onClick={() => setTab('sync')} disabled={busy}>Sync</button>
-            </div>
-          </div>
           <div className="status">{status}</div>
         </div>
 
-        {tab === 'sync' && (
+        {section === 'capitulos' && (
+          <>
+            <div className="chapter-list">
+              {chapters.map((c) => (
+                <li key={c.path}>
+                  <button
+                    className={c.path === effectiveSelectedPath ? 'active' : ''}
+                    onClick={() => { setSelectedPath(c.path); setSection('capitulos'); setMode('editar') }}
+                  >
+                    {c.name}
+                    {c.dirty ? <span className="badge">local</span> : null}
+                  </button>
+                </li>
+              ))}
+              {!chapters.length ? <li className="muted" style={{ padding: 8 }}>Sem capítulos locais. Abra Sync e faça Pull.</li> : null}
+            </div>
+            {selected && (
+              <div className="card stack">
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{selected.name}</strong>
+                  <div className="row">
+                    <button className={mode === 'editar' ? 'primary' : 'secondary'} onClick={() => setMode('editar')}>Editar</button>
+                    <button className={mode === 'revisar' ? 'primary' : 'secondary'} onClick={() => setMode('revisar')}>Revisar</button>
+                  </div>
+                </div>
+                {mode === 'editar' && (
+                  <>
+                    <div className="row">
+                      <button className="secondary" onClick={() => setPreview((v) => !v)}>{preview ? 'Editor' : 'Preview'}</button>
+                      <span className="muted" style={{ color: '#6b7280' }}>Clique em uma linha para criar comentário de autor. Edições são salvas localmente (offline).</span>
+                    </div>
+                    {preview ? (
+                      <div className="card"><ReactMarkdown remarkPlugins={[remarkGfm]}>{selected.content}</ReactMarkdown></div>
+                    ) : (
+                      <textarea ref={editorRef} className="editor" value={selected.content} onClick={onEditorClick} onChange={(e) => void saveChapterLocal(selected.path, e.target.value)} />
+                    )}
+                    {commentLine != null && (
+                      <div className="card stack" style={{ borderColor: '#f59e0b' }}>
+                        <strong>Novo comentário de autor — linha {commentLine}</strong>
+                        <div className="status">Trecho: {(selected.content.split('\n')[commentLine - 1] || '').slice(0, 160) || '(linha vazia)'}</div>
+                        <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva a nota do autor para esta linha..." />
+                        <div className="row">
+                          <button className="primary" onClick={() => void onSaveComment()} disabled={!commentText.trim()}>Salvar comentário</button>
+                          <button className="secondary" onClick={() => { setCommentLine(null); setCommentText('') }}>Cancelar</button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="stack">
+                      <strong>Comentários de autor ({comments.filter((c) => !c.resolved).length} abertos)</strong>
+                      {!comments.length ? <div className="status">Nenhum comentário neste capítulo.</div> : null}
+                      {comments.map((c) => (
+                        <div key={c.id} className="card" style={{ margin: 0, opacity: c.resolved ? 0.65 : 1 }}>
+                          <div className="row" style={{ justifyContent: 'space-between' }}>
+                            <strong>L{c.line}{c.resolved ? ' (resolvido)' : ''}</strong>
+                            <div className="row">
+                              <button className="secondary" onClick={() => c.id != null && void setCommentResolved(c.id, !c.resolved)}>{c.resolved ? 'Reabrir' : 'Resolver'}</button>
+                              <button className="danger" onClick={() => c.id != null && void deleteComment(c.id)}>Excluir</button>
+                            </div>
+                          </div>
+                          {c.quote ? <div className="status">“{c.quote.slice(0, 140)}”</div> : null}
+                          <div>{c.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {mode === 'revisar' && (
+                  <>
+                    <div className="card stack" style={{ borderColor: '#2563eb' }}>
+                      <strong>Revisão geral do capítulo</strong>
+                      <div className="status">Avalia o capítulo atual com base nos prompts disponíveis.</div>
+                      <label className="stack">
+                        <span>Agente / prompt</span>
+                        <select value={templateId} onChange={(e) => setTemplateChoice(e.target.value)}>
+                          {templates.map((t) => <option key={t.id} value={t.id}>{t.title} — {t.description}</option>)}
+                        </select>
+                      </label>
+                      {activeTemplate ? <div className="status">Fonte: {activeTemplate.source}</div> : null}
+                      <div className="row">
+                        <button className="primary" onClick={onRunPrompt} disabled={busy}>Executar no capítulo atual</button>
+                        <button className="secondary" onClick={() => setMode('editar')} disabled={busy}>Voltar ao editor</button>
+                      </div>
+                    </div>
+                    </>
+                  )}
+                {output ? <div className="card"><strong>Resultado</strong><pre className="output">{output}</pre></div> : null}
+              </div>
+            )}
+            {!selected && chapters.length && <div className="status">Selecione um capítulo para editar ou revisar.</div>}
+          </>
+        )}
+
+        {section === 'livro' && (
+          <div className="card stack">
+            <div className="card stack" style={{ borderColor: '#2563eb' }}>
+              <strong>Revisão geral do livro</strong>
+              <div className="status">Usa Save The Cat para avaliar estrutura geral e evolução dos protagonistas pela História B, do capítulo inicial ao final, com base nos capítulos locais + referências do Story Bible (arco STC/esquema L1 configurados na aba Sync).</div>
+              <button className="primary" onClick={() => void onWholeBookReview()} disabled={busy || !chapters.length}>Executar revisão geral (STC + História B + Story Bible)</button>
+            </div>
+            <label className="stack">
+              <span>Template de marketing</span>
+              <select value={templateId} onChange={(e) => setTemplateChoice(e.target.value)}>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.title} — {t.description}</option>)}
+              </select>
+            </label>
+            {activeTemplate ? <div className="status">Fonte: {activeTemplate.source}</div> : null}
+            <div className="row">
+              <button className="primary" onClick={onRunPrompt} disabled={busy || !selected}>Executar</button>
+              <button className="secondary" onClick={() => setSection('capitulos')} disabled={busy}>Voltar aos capítulos</button>
+            </div>
+          </div>
+        )}
+
+        {section === 'sync' && (
           <div className="card stack">
             <h2 style={{ margin: 0, fontSize: '1rem' }}>GitHub / Sincronização</h2>
             <p className="status">O token OAuth (scope repo) deve ter acesso ao repositório do livro e ao Story Bible quando privados. Edições do livro são enviadas como PR; merge manual.</p>
@@ -264,91 +349,31 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {(tab === 'editar' || tab === 'revisar' || tab === 'marketing') && selected && (
-          <>
-            <div className="card stack">
-              {tab === 'editar' && (
-                <>
-                  <div className="row">
-                    <button className="secondary" onClick={() => setPreview((v) => !v)}>{preview ? 'Editor' : 'Preview'}</button>
-                    <span className="muted" style={{ color: '#6b7280' }}>Clique em uma linha para criar comentário de autor. Edições são salvas localmente (offline).</span>
-                  </div>
-                  {preview ? (
-                    <div className="card"><ReactMarkdown remarkPlugins={[remarkGfm]}>{selected.content}</ReactMarkdown></div>
-                  ) : (
-                    <textarea ref={editorRef} className="editor" value={selected.content} onClick={onEditorClick} onChange={(e) => void saveChapterLocal(selected.path, e.target.value)} />
-                  )}
-                  {commentLine != null && (
-                    <div className="card stack" style={{ borderColor: '#f59e0b' }}>
-                      <strong>Novo comentário de autor — linha {commentLine}</strong>
-                      <div className="status">Trecho: {(selected.content.split('\n')[commentLine - 1] || '').slice(0, 160) || '(linha vazia)'}</div>
-                      <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Escreva a nota do autor para esta linha..." />
-                      <div className="row">
-                        <button className="primary" onClick={() => void onSaveComment()} disabled={!commentText.trim()}>Salvar comentário</button>
-                        <button className="secondary" onClick={() => { setCommentLine(null); setCommentText('') }}>Cancelar</button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="stack">
-                    <strong>Comentários de autor ({comments.filter((c) => !c.resolved).length} abertos)</strong>
-                    {!comments.length ? <div className="status">Nenhum comentário nesta capítulo.</div> : null}
-                    {comments.map((c) => (
-                      <div key={c.id} className="card" style={{ margin: 0, opacity: c.resolved ? 0.65 : 1 }}>
-                        <div className="row" style={{ justifyContent: 'space-between' }}>
-                          <strong>L{c.line}{c.resolved ? ' (resolvido)' : ''}</strong>
-                          <div className="row">
-                            <button className="secondary" onClick={() => c.id != null && void setCommentResolved(c.id, !c.resolved)}>{c.resolved ? 'Reabrir' : 'Resolver'}</button>
-                            <button className="danger" onClick={() => c.id != null && void deleteComment(c.id)}>Excluir</button>
-                          </div>
-                        </div>
-                        {c.quote ? <div className="status">“{c.quote.slice(0, 140)}”</div> : null}
-                        <div>{c.text}</div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              {tab === 'revisar' && (
-                <>
-                  <div className="card stack" style={{ borderColor: '#2563eb' }}>
-                    <strong>Revisão geral do livro</strong>
-                    <div className="status">Usa Save The Cat para avaliar estrutura geral e evolução dos protagonistas pela História B, do capítulo inicial ao final, com base nos capítulos locais + referências do Story Bible (arco STC/esquema L1 configurados na aba Sync).</div>
-                    <button className="primary" onClick={() => void onWholeBookReview()} disabled={busy || !chapters.length}>Executar revisão geral (STC + História B + Story Bible)</button>
-                  </div>
-                  <label className="stack">
-                    <span>Agente / prompt do capítulo</span>
-                    <select value={templateId} onChange={(e) => setTemplateChoice(e.target.value)}>
-                      {templates.map((t) => <option key={t.id} value={t.id}>{t.title} — {t.description}</option>)}
-                    </select>
-                  </label>
-                  {activeTemplate ? <div className="status">Fonte: {activeTemplate.source}</div> : null}
-                  <div className="row">
-                    <button className="primary" onClick={onRunPrompt} disabled={busy}>Executar no capítulo atual</button>
-                    <button className="secondary" onClick={() => setTab('editar')} disabled={busy}>Voltar ao editor</button>
-                  </div>
-                </>
-              )}
-              {tab === 'marketing' && (
-                <>
-                  <label className="stack">
-                    <span>Template de marketing</span>
-                    <select value={templateId} onChange={(e) => setTemplateChoice(e.target.value)}>
-                      {templates.map((t) => <option key={t.id} value={t.id}>{t.title} — {t.description}</option>)}
-                    </select>
-                  </label>
-                  {activeTemplate ? <div className="status">Fonte: {activeTemplate.source}</div> : null}
-                  <div className="row">
-                    <button className="primary" onClick={onRunPrompt} disabled={busy}>Executar</button>
-                    <button className="secondary" onClick={() => setTab('editar')} disabled={busy}>Voltar ao editor</button>
-                  </div>
-                </>
-              )}
-            </div>
-            {output ? <div className="card"><strong>Resultado</strong><pre className="output">{output}</pre></div> : null}
-          </>
-        )}
       </main>
+
+      <nav className="bottom-nav">
+        <button
+          className={section === 'capitulos' ? 'active' : ''}
+          onClick={() => { setSection('capitulos'); if (!selected) setMode('editar') }}
+        >
+          <span className="icon">📚</span>
+          <span className="label">Capítulos</span>
+        </button>
+        <button
+          className={section === 'livro' ? 'active' : ''}
+          onClick={() => setSection('livro')}
+        >
+          <span className="icon">📖</span>
+          <span className="label">Livro</span>
+        </button>
+        <button
+          className={section === 'sync' ? 'active' : ''}
+          onClick={() => setSection('sync')}
+        >
+          <span className="icon">☁️</span>
+          <span className="label">Sync</span>
+        </button>
+      </nav>
     </div>
   )
 }
