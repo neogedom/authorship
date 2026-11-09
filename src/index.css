@@ -41,9 +41,22 @@ button.danger { background: #dc2626; color: white; border: none; border-radius: 
 button:disabled { opacity: 0.6; cursor: default; }
 .chapter-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .chapter-list button { width: 100%; text-align: left; background: transparent; color: inherit; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; }
-.chapter-list button.active { background: #1f2937; border-color: #374151; }
-.chapter-list .badge { font-size: 0.7rem; background: #f59e0b; color: #111827; padding: 1px 6px; border-radius: 999px; margin-left: 6px; }
-.tabs { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.chapter-picker { margin-bottom: 8px; position: relative; }
+.chapter-toggle {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: #fff; color: #111827; font-size: 0.9rem; cursor: pointer;
+  justify-content: space-between;
+}
+.chapter-toggle .chevron { font-size: 0.75rem; }
+.chapter-list.dropdown {
+  position: absolute; margin-top: 6px; width: 100%; max-height: 260px; overflow: auto;
+  border: 1px solid #d1d5db; border-radius: 8px; background: #fff;
+  list-style: none; padding: 0; margin: 0; z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.chapter-list.dropdown li button { width: 100%; text-align: left; background: transparent; color: inherit; border: none; border-bottom: 1px solid #f3f4f6; border-radius: 0; padding: 8px 10px; }
+.chapter-list.dropdown li button.active { background: #eff6ff; border-color: transparent; color: #2563eb; font-weight: 600; }
+.chapter-list.dropdown li:last-child button { border-bottom: none; }
 .status { font-size: 0.85rem; color: #374151; white-space: pre-wrap; }
 pre.output { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
 

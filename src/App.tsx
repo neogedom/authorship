@@ -30,6 +30,7 @@ export default function App() {
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [section, setSection] = useState<Section>('capitulos')
   const [mode, setMode] = useState<Mode>('editar')
+  const [chapterListOpen, setChapterListOpen] = useState(false)
   const [status, setStatus] = useState('Pronto.')
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState(false)
@@ -42,7 +43,6 @@ export default function App() {
   const [commentLine, setCommentLine] = useState<number | null>(null)
   const [commentText, setCommentText] = useState('')
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
-
   const selected = useMemo(
     () => chapters.find((c) => c.path === selectedPath) || chapters[0] || null,
     [chapters, selectedPath],
@@ -203,20 +203,35 @@ export default function App() {
 
         {section === 'capitulos' && (
           <>
-            <div className="chapter-list">
-              {chapters.map((c) => (
-                <li key={c.path}>
-                  <button
-                    className={c.path === effectiveSelectedPath ? 'active' : ''}
-                    onClick={() => { setSelectedPath(c.path); setSection('capitulos'); setMode('editar') }}
-                  >
-                    {c.name}
-                    {c.dirty ? <span className="badge">local</span> : null}
-                  </button>
-                </li>
-              ))}
-              {!chapters.length ? <li className="muted" style={{ padding: 8 }}>Sem capítulos locais. Abra Sync e faça Pull.</li> : null}
+            <div className="chapter-picker">
+              <button
+                className="chapter-toggle"
+                onClick={() => setChapterListOpen((v) => !v)}
+                title="Escolher capítulo"
+              >
+                <span className="chevron">{chapterListOpen ? '▲' : '▼'}</span>
+                {selected ? selected.name : 'Escolha um capítulo'}
+              </button>
+              {chapterListOpen && (
+                <ul className="chapter-list dropdown">
+                  {chapters.map((c) => (
+                    <li key={c.path}>
+                      <button
+                        className={c.path === effectiveSelectedPath ? 'active' : ''}
+                        onClick={() => { setSelectedPath(c.path); setChapterListOpen(false); setMode('editar') }}
+                      >
+                        {c.name}
+                        {c.dirty ? <span className="badge">local</span> : null}
+                      </button>
+                    </li>
+                  ))}
+                  {!chapters.length ? <li className="muted" style={{ padding: 8 }}>Sem capítulos locais. Abra Sync e faça Pull.</li> : null}
+                </ul>
+              )}
             </div>
+            {!selected && chapters.length && (
+              <div className="status">Selecione um capítulo para editar ou revisar.</div>
+            )}
             {selected && (
               <div className="card stack">
                 <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -227,7 +242,7 @@ export default function App() {
                   </div>
                 </div>
                 {mode === 'editar' && (
-                  <>
+                  <div>
                     <div className="row">
                       <button className="secondary" onClick={() => setPreview((v) => !v)}>{preview ? 'Editor' : 'Preview'}</button>
                       <span className="muted" style={{ color: '#6b7280' }}>Clique em uma linha para criar comentário de autor. Edições são salvas localmente (offline).</span>
@@ -265,10 +280,10 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                  </>
+                  </div>
                 )}
                 {mode === 'revisar' && (
-                  <>
+                  <div>
                     <div className="card stack" style={{ borderColor: '#2563eb' }}>
                       <strong>Revisão geral do capítulo</strong>
                       <div className="status">Avalia o capítulo atual com base nos prompts disponíveis.</div>
@@ -284,12 +299,11 @@ export default function App() {
                         <button className="secondary" onClick={() => setMode('editar')} disabled={busy}>Voltar ao editor</button>
                       </div>
                     </div>
-                    </>
-                  )}
+                  </div>
+                )}
                 {output ? <div className="card"><strong>Resultado</strong><pre className="output">{output}</pre></div> : null}
               </div>
             )}
-            {!selected && chapters.length && <div className="status">Selecione um capítulo para editar ou revisar.</div>}
           </>
         )}
 
