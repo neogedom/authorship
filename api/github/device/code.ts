@@ -23,18 +23,32 @@ async function readBody(request: Request): Promise<string> {
   if (typeof request.json === 'function') {
     return JSON.stringify(await request.json())
   }
-  const diag: Record<string, unknown> = {
-    error: 'Unable to read request body',
-    keys: Object.keys(request),
-    ownNames: Object.getOwnPropertyNames(request),
-    bodyType: typeof (request as any).body,
-    hasBody: !!(request as any).body,
-    protoKeys: Object.getOwnPropertyNames(Object.getPrototypeOf(request)),
+  const anyReq = request as any
+  const body = anyReq.body
+  if (body && typeof body.getReader === 'function') {
+    const reader = body.getReader()
+    const chunks: Uint8Array[] = []
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) chunks.push(value)
+    }
+    reader.releaseLock()
+    let total = 0
+    for (const chunk of chunks) total += chunk.length
+    const result = new Uint8Array(total)
+    let offset = 0
+    for (const chunk of chunks) {
+      result.set(chunk, offset)
+      offset += chunk.length
+    }
+    return new TextDecoder().decode(result)
   }
-  try {
-    const proto = Object.getPrototypeOf(request)
-    const protoProto = Object.getPrototypeOf(proto)
-    diag['protoProtoKeys'] = protoProto ? Object.getOwnPropertyNames(protoProto) : null
-  } catch {}
-  throw new Error(JSON.stringify(diag))
+  if (body && typeof body.text === 'function') {
+    return await body.text()
+  }
+  if (body !== undefined && body !== null) {
+    return String(body)
+  }
+  throw new Error('Unable to read request body')
 }
