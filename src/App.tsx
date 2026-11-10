@@ -6,10 +6,12 @@ import {
   db,
   deleteSetting,
   getRepoConfig,
+  getSetting,
   getStoryBibleConfig,
   getToken,
   saveRepoConfig,
   saveStoryBibleConfig,
+  setSetting,
   setToken,
   startDeviceFlow,
   pollDeviceToken,
@@ -39,6 +41,8 @@ export default function App() {
   const [cfg, setCfg] = useState<RepoConfig | null>(null)
   const [sbCfg, setSbCfg] = useState<StoryBibleConfig | null>(null)
   const [token, setTokenState] = useState<string | null>(null)
+  const [openrouterApiKey, setOpenrouterApiKey] = useState<string>('')
+  const [llmModel, setLlmModel] = useState<string>('')
   const [device, setDevice] = useState<{ user_code: string; verification_uri: string; device_code: string; interval: number } | null>(null)
   const [commentLine, setCommentLine] = useState<number | null>(null)
   const [commentText, setCommentText] = useState('')
@@ -59,6 +63,8 @@ export default function App() {
       setCfg(await getRepoConfig())
       setSbCfg(await getStoryBibleConfig())
       setTokenState(await getToken())
+      setOpenrouterApiKey(await getSetting('openrouter_api_key') ?? '')
+      setLlmModel(await getSetting('llm_model') ?? '')
     })()
   }, [])
 
@@ -86,7 +92,9 @@ export default function App() {
     if (!cfg || !sbCfg) return
     await saveRepoConfig(cfg)
     await saveStoryBibleConfig(sbCfg)
-    setStatus('Configuração salva localmente (Livro + Story Bible).')
+    await setSetting('openrouter_api_key', openrouterApiKey)
+    await setSetting('llm_model', llmModel)
+    setStatus('Configuração salva localmente (Livro + Story Bible + OpenRouter).')
   }
 
   async function onConnectGitHub() {
@@ -143,7 +151,7 @@ export default function App() {
         text: selected.content,
         comments: formatAuthorComments(comments.filter((c) => !c.resolved)) || '(sem comentários abertos)',
         storybible: sb.text,
-      })
+      }, { apiKey: openrouterApiKey || undefined, model: llmModel || undefined })
       const note = sb.missing.length ? `\n\n[Aviso Story Bible] Não carregados: ${sb.missing.join('; ')}` : ''
       setOutput(res.text + note)
       setStatus(sb.loaded.length ? `Execução concluída. Story Bible: ${sb.loaded.join(', ')}.` : 'Execução concluída (sem referências Story Bible carregadas).')
@@ -169,7 +177,7 @@ export default function App() {
         text: material,
         comments: '(revisão geral do livro)',
         storybible: sb.text,
-      })
+      }, { apiKey: openrouterApiKey || undefined, model: llmModel || undefined })
       const note = sb.missing.length ? `\n\n[Aviso Story Bible] Não carregados: ${sb.missing.join('; ')}` : ''
       setOutput(res.text + note)
       setStatus(`Revisão geral concluída (${ordered.length} capítulos). Story Bible: ${sb.loaded.length ? sb.loaded.join(', ') : 'nenhum arquivo carregado'}.`)
@@ -340,6 +348,10 @@ export default function App() {
             </div>
             <label className="stack"><span>Pasta de capítulos</span><input value={cfg?.chaptersDir || ''} onChange={(e) => setCfg((c) => c && ({ ...c, chaptersDir: e.target.value }))} /></label>
             <label className="stack"><span>OAuth Client ID (Device Flow)</span><input value={cfg?.clientId || ''} onChange={(e) => setCfg((c) => c && ({ ...c, clientId: e.target.value }))} placeholder="Ov23..." /></label>
+
+            <strong>OpenRouter (LLM)</strong>
+            <label className="stack"><span>API Key</span><input type="password" value={openrouterApiKey} onChange={(e) => setOpenrouterApiKey(e.target.value)} placeholder="sk-or-..." /></label>
+            <label className="stack"><span>Modelo</span><input value={llmModel} onChange={(e) => setLlmModel(e.target.value)} placeholder="openai/gpt-4o-mini" /></label>
 
             <strong>Repositório Story Bible</strong>
             <div className="row">

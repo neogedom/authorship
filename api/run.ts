@@ -1,6 +1,6 @@
 import { IncomingMessage, ServerResponse } from 'node:http'
 
-type Req = { prompt?: string; templateId?: string }
+type Req = { prompt?: string; templateId?: string; apiKey?: string; model?: string }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   if (req.method !== 'POST') {
@@ -22,14 +22,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return
   }
 
-  const key = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY
-  const model = process.env.LLM_MODEL || 'gpt-4.1-mini'
+  const key = body.apiKey || process.env.OPENROUTER_API_KEY
+  const model = body.model || process.env.LLM_MODEL || 'openai/gpt-4o-mini'
   if (!key) {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(
       JSON.stringify({
         text:
-          `Backend não configurado (defina OPENAI_API_KEY/LLM_API_KEY).\n\n` +
+          `Backend não configurado (defina OPENROUTER_API_KEY na aba Sync ou envie apiKey na requisição).\n\n` +
           `Template: ${body.templateId || 'desconhecido'}\n` +
           `Prévia do prompt:\n${body.prompt.slice(0, 1200)}`,
       }),
@@ -37,13 +37,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return
   }
 
-  const upstream = await fetch('https://api.openai.com/v1/responses', {
+  const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://authorship.app',
+      'X-Title': 'Authorship',
     },
-    body: JSON.stringify({ model, input: body.prompt }),
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: body.prompt }] }),
   })
   if (!upstream.ok) {
     const text = await upstream.text()
@@ -51,9 +53,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.end(text)
     return
   }
-  const data = (await upstream.json()) as { output_text?: string }
+  const data = (await upstream.json()) as { choices?: Array<{ message?: { content?: string } }> }
   res.writeHead(200, { 'Content-Type': 'application/json' })
-  res.end(JSON.stringify({ text: data.output_text || JSON.stringify(data, null, 2) }))
+  res.end(JSON.stringify({ text: data.choices?.[0]?.message?.content || JSON.stringify(data, null, 2) }))
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {
